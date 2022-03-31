@@ -45,7 +45,7 @@ def separate_data(fname, new_fname):
      
 def save_data_to_file(new_fname, X, Y, y):
     scipy.io.savemat('Datasets/'+new_fname, dict(data=X, onehot = Y, labels = y))
-    return 'Datasets'+new_fname
+    return 'Datasets/'+new_fname
 
 # input training data, outputs mean and std
 def get_mean_and_std(trainX):
@@ -135,8 +135,8 @@ def ComputeAccuracy(X, y, W, b):
         print("prediction ",prediction, "\n")
         if prediction == y[img][0]:
             amount_of_correct += 1
-    print(amount_of_correct, "/ ", y.shape[0])
     return amount_of_correct / y.shape[0]
+
 
 def main():
     init_parameters()
@@ -153,11 +153,10 @@ def main():
     trainX = training_batch['data']
     trainY = training_batch['onehot']
     trainy = training_batch['labels']
-    #print(training_batch['data'])
+
     temp4 = EvaluateClassifier(trainX[:,:100], W, b)
-
     temp5 = ComputeCost(trainX, trainY, W, b, 1)
-    temp6 = ComputeAccuracy(trainX, trainy, W, b)
+    temp6 = ComputeAccuracy(trainX, trainy, W, b) 
 
-    print(temp6)
+    print("Accuracy = ", temp6*100," %" )
 main()
