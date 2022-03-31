@@ -1,7 +1,7 @@
 import math
-from tokenize import Double
 import scipy
 from functions import *
+import functions as funcs
 from scipy.io import *
 import numpy as np
 import numpy.matlib
@@ -10,6 +10,8 @@ import numpy.matlib
 n = 10000
 d = 3072
 K = 10
+batch_size = 1
+LAMBDA = 0
 
 test_batch_ = loadmat('Datasets/cifar-10-batches-mat/test_batch.mat')     # for testing
 data_batch_1 = loadmat('Datasets/cifar-10-batches-mat/data_batch_1.mat') # for training
@@ -22,9 +24,10 @@ test_batch = None
 training_batch = None
 validation_batch = None
 
+
 #GLOBAL PARAMETERS
-W = None # Weights matrix
-b = None # bias vector
+#W = None # Weights matrix
+#b = None # bias vector
 
 def separate_data(fname, new_fname):
     data_batch = loadmat('Datasets/cifar-10-batches-mat/' + fname)
@@ -76,9 +79,9 @@ def pre_process(train, val, test):
     return train, val, test
 
 def init_parameters():
-    global W,b
     W = np.random.normal(loc=0, scale=0.01, size=(K,d))
     b = np.random.normal(loc=0, scale=0.01, size=(K,1))
+    return W, b
     
 def EvaluateClassifier(X, weight, bias):
     P = np.zeros((K,n))
@@ -87,7 +90,7 @@ def EvaluateClassifier(X, weight, bias):
         col = X[:, col_idx]
         s = numpy.matmul(weight, col) + bias
 
-        p = softmax(s)
+        p = funcs.softmax(s)
         P[:,col_idx] = p.T
 
     return P
@@ -131,15 +134,30 @@ def ComputeAccuracy(X, y, W, b):
     for img in range(P.shape[1]):
         # find index of the max value of the p vector for each image. 
         prediction = np.where(P[:,img] == max(P[:,img]))[0][0]
-        print("y[img] ", y[img][0])
-        print("prediction ",prediction, "\n")
         if prediction == y[img][0]:
             amount_of_correct += 1
+
     return amount_of_correct / y.shape[0]
 
 
+def ComputeGradients(X, Y, P, W, lambda_, b):
+    X_batch = X[: , :batch_size]
+    Y_batch = Y[: , :batch_size]
+
+    #forward pass
+    P_batch = funcs.softmax(np.matmul(W, X_batch) + np.sum(b))
+    
+    #backward pass
+    G_batch = -(Y_batch - P_batch)
+    dL_dW = 1/batch_size * np.matmul(G_batch, X_batch.T)
+    dL_db = 1/batch_size * np.sum(G_batch)
+
+    grad_b = dL_db
+    grad_W = dL_dW * 2*lambda_ * W 
+    return grad_W, grad_b
+
 def main():
-    init_parameters()
+    W, b = init_parameters()
 
     training_path    = separate_data('data_batch_1.mat', 'training_batch.mat')
     validation_path  = separate_data('data_batch_2.mat', 'validation_batch.mat')
@@ -154,9 +172,17 @@ def main():
     trainY = training_batch['onehot']
     trainy = training_batch['labels']
 
-    temp4 = EvaluateClassifier(trainX[:,:100], W, b)
-    temp5 = ComputeCost(trainX, trainY, W, b, 1)
+    temp4 = EvaluateClassifier(trainX, W, b)
+    temp5 = ComputeCost(trainX, trainY, W, b, LAMBDA)
     temp6 = ComputeAccuracy(trainX, trainy, W, b) 
 
-    print("Accuracy = ", temp6*100," %" )
+    #print("Accuracy = ", temp6*100," %" )
+
+    P = EvaluateClassifier(trainX, W, b)
+    grad_W, grad_b = ComputeGradients(trainX, trainY, P, W, LAMBDA, b)
+    print("mine    ", "grad_W  = ", grad_W, " || ", " grad_b = ", grad_b)
+
+    ngrad_b, ngrad_W = funcs.ComputeGradsNum(trainX[:, 1], trainY[:, 1], W, b, LAMBDA, 1e-6)
+    print("correct ", "ngrad_W = ", ngrad_W, " || ", "ngrad_b = ", ngrad_b)
+
 main()

@@ -1,4 +1,5 @@
 import numpy as np
+from Assignment1 import ComputeCost
 
 def softmax(x):
 	""" Standard definition of the softmax function """
@@ -16,10 +17,10 @@ def ComputeGradsNum(X, Y, P, W, b, lamda, h):
 	no 	= 	W.shape[0]
 	d 	= 	X.shape[0]
 
-	grad_W = np.zeros(W.shape);
-	grad_b = np.zeros((no, 1));
+	grad_W = np.zeros(W.shape)
+	grad_b = np.zeros((no, 1))
 
-	c = ComputeCost(X, Y, W, b, lamda);
+	c = ComputeCost(X, Y, W, b, lamda)
 	
 	for i in range(len(b)):
 		b_try = np.array(b)
@@ -41,8 +42,8 @@ def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
 	no 	= 	W.shape[0]
 	d 	= 	X.shape[0]
 
-	grad_W = np.zeros(W.shape);
-	grad_b = np.zeros((no, 1));
+	grad_W = np.zeros(W.shape)
+	grad_b = np.zeros((no, 1))
 	
 	for i in range(len(b)):
 		b_try = np.array(b)
