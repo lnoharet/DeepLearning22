@@ -44,7 +44,7 @@ def separate_data(fname, new_fname):
     return save_data_to_file(new_fname, x, y_m, y)
      
 def save_data_to_file(new_fname, X, Y, y):
-    scipy.io.savemat('Datasets'+new_fname, dict(data=X, onehot = Y, labels = y))
+    scipy.io.savemat('Datasets/'+new_fname, dict(data=X, onehot = Y, labels = y))
     return 'Datasets'+new_fname
 
 # input training data, outputs mean and std
