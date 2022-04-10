@@ -1,5 +1,4 @@
 import numpy as np
-from Assignment1 import ComputeCost
 
 def softmax(x):
 	""" Standard definition of the softmax function """
@@ -13,6 +12,7 @@ def LoadBatch(filename):
 	return dict
 
 def ComputeGradsNum(X, Y, P, W, b, lamda, h):
+	from Assignment1 import ComputeCost
 	""" Converted from matlab code """
 	no 	= 	W.shape[0]
 	d 	= 	X.shape[0]
@@ -35,9 +35,10 @@ def ComputeGradsNum(X, Y, P, W, b, lamda, h):
 			c2 = ComputeCost(X, Y, W_try, b, lamda)
 			grad_W[i,j] = (c2-c) / h
 
-	return [grad_W, grad_b]
+	return grad_W, grad_b
 
 def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
+	from Assignment1 import ComputeCost
 	""" Converted from matlab code """
 	no 	= 	W.shape[0]
 	d 	= 	X.shape[0]
@@ -68,7 +69,7 @@ def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
 
 			grad_W[i,j] = (c2-c1) / (2*h)
 
-	return [grad_W, grad_b]
+	return grad_W, grad_b
 
 def montage(W):
 	""" Display the image for each label in W """

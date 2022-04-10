@@ -1,67 +1,51 @@
-import math
 import scipy
-from functions import *
-import functions as funcs
 from scipy.io import *
 import numpy as np
 import numpy.matlib
+import matplotlib.pyplot as plt
+
+
+__author__ = 'Léo Noharet'
+__email__ = 'lnoharet@kth.se'
+
+
 
 # GLOBAL CONSTANTS
 n = 10000
 d = 3072
 K = 10
-batch_size = 1
-LAMBDA = 0
 
-test_batch_ = loadmat('Datasets/cifar-10-batches-mat/test_batch.mat')     # for testing
-data_batch_1 = loadmat('Datasets/cifar-10-batches-mat/data_batch_1.mat') # for training
-data_batch_2 = loadmat('Datasets/cifar-10-batches-mat/data_batch_2.mat') # for validation
+np.random.seed(400)
 
-data_batches = ['data_batch_3.mat', 'data_batch_4.mat','data_batch_5.mat']
-# keys = ['__header__', '__version__', '__globals__', 'data', 'labels', 'batch_label']
-
-test_batch = None
-training_batch = None
-validation_batch = None
-
-
-#GLOBAL PARAMETERS
-#W = None # Weights matrix
-#b = None # bias vector
-
+# reads in data from matlab file: fname, converts it into the wanted format and saves it to new_fname. 
 def separate_data(fname, new_fname):
     data_batch = loadmat('Datasets/cifar-10-batches-mat/' + fname)
 
     # image pixel data (d x n). Should be double and values between 0 and 1 ??
-    x = np.matrix(np.array(data_batch['data']).transpose()).astype(float)
-    #print(X)
+    x = np.float64(np.matrix(data_batch['data']).transpose())
 
     y = np.matrix(np.array(data_batch['labels'])) # labels for each of the n images. An index 0-9
-    #print(y)
 
-    y_m = np.zeros((K, n))
+    # create a one-hot representation of Y. 
+    y_m = np.zeros((K, n), dtype=np.float64)
     for i in range(n):
         j = y[i][0] # label image i
         y_m[j,i] = 1
 
-    return save_data_to_file(new_fname, x, y_m, y)
-     
-def save_data_to_file(new_fname, X, Y, y):
-    scipy.io.savemat('Datasets/'+new_fname, dict(data=X, onehot = Y, labels = y))
+    scipy.io.savemat('Datasets/'+new_fname, dict(data=x, onehot = y_m, labels = y))
+
     return 'Datasets/'+new_fname
+
 
 # input training data, outputs mean and std
 def get_mean_and_std(trainX):
     mean_trainX  = np.matrix(trainX.mean(1)).transpose()
     std_trainX   = np.matrix(trainX.std(1)).transpose()
 
-    print('shape of mean_trainX ', mean_trainX.shape)
-    print('shape of std_trainX ', std_trainX.shape)
-
     return mean_trainX, std_trainX
 
-def normalize_data(X, mean_X, std_X):
 
+def normalize_data(X, mean_X, std_X):
     X = X - numpy.matlib.repmat(mean_X, 1, np.size(X,1) )
     X = np.divide(X, numpy.matlib.repmat(std_X, 1, np.size(X,1) ))
     return X
@@ -78,61 +62,43 @@ def pre_process(train, val, test):
 
     return train, val, test
 
+
 def init_parameters():
     W = np.random.normal(loc=0, scale=0.01, size=(K,d))
     b = np.random.normal(loc=0, scale=0.01, size=(K,1))
     return W, b
     
-def EvaluateClassifier(X, weight, bias):
-    P = np.zeros((K,n))
 
-    for col_idx in range(X.shape[1]):
-        col = X[:, col_idx]
-        s = numpy.matmul(weight, col) + bias
+def softmax(x):
+	""" Standard definition of the softmax function """
+	return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-        p = funcs.softmax(s)
-        P[:,col_idx] = p.T
+def evaluate_classifier(X, weight, bias):
+    return softmax(weight @ X + bias)
 
-    return P
+def compute_cost(X, Y, W, b, lamdba_):
 
-def sum_square_elem_of_m(m):
-    rows, cols = m.shape
-    tot_sum = 0
-    row = 0
-    while row < rows:
-        col = 0
-        while col < cols:
-            tot_sum += m[row, col] * m[row, col]
-            col += 1
-        row += 1
-    return tot_sum
-
-def cross_entropy_loss(x, y, W, b, p):
-    return math.log(p[y])
-
-def ComputeCost(X, Y, W, b, lamdba_):
-    size_D = X.size
-    W_squared_sum = sum_square_elem_of_m(W)
-    P = EvaluateClassifier(X, W, b)
+    P = evaluate_classifier(X, W, b)
     sum_lcross = 0
+    
     for col_idx in range(X.shape[1]):
-        # choose one image vector in X and P
-        x, p = X[:,col_idx] , P[:,col_idx]
-        # find corresponding label in Y matrix
-        y =  np.where(Y[:,col_idx] == 1)
-        if y[0].size > 1:
-            print("oh oh, several labels for this image")
-        else:
-            sum_lcross += cross_entropy_loss(x, y[0], W, b, p)
-    return 1/size_D * sum_lcross + lamdba_ * W_squared_sum
+        y, p = Y[:,col_idx] , P[:,col_idx]
+        sum_lcross += -np.dot(y.T, np.log(p))[0,0]
 
-def ComputeAccuracy(X, y, W, b):
+    regularization = lamdba_ * np.sum(np.square(W))
+    loss = 1/X.shape[1] * sum_lcross 
+    cost = loss + regularization
+
+    return cost, loss
+
+
+def compute_accuracy(X, y, W, b):
     # compute models predictions in vector:
-    P = EvaluateClassifier(X, W, b)
+    P = evaluate_classifier(X, W, b)
     amount_of_correct = 0
     #for each image in dataset X:
     for img in range(P.shape[1]):
-        # find index of the max value of the p vector for each image. 
+        # find index of the highest prob of the p vector for each image. 
         prediction = np.where(P[:,img] == max(P[:,img]))[0][0]
         if prediction == y[img][0]:
             amount_of_correct += 1
@@ -140,49 +106,181 @@ def ComputeAccuracy(X, y, W, b):
     return amount_of_correct / y.shape[0]
 
 
-def ComputeGradients(X, Y, P, W, lambda_, b):
-    X_batch = X[: , :batch_size]
-    Y_batch = Y[: , :batch_size]
-
+def compute_gradients(X_batch, Y_batch, P, W, lambda_, b):
+    n = X_batch.shape[1]
     #forward pass
-    P_batch = funcs.softmax(np.matmul(W, X_batch) + np.sum(b))
+    P_batch = evaluate_classifier(X_batch, W, b)
     
     #backward pass
     G_batch = -(Y_batch - P_batch)
-    dL_dW = 1/batch_size * np.matmul(G_batch, X_batch.T)
-    dL_db = 1/batch_size * np.sum(G_batch)
 
-    grad_b = dL_db
-    grad_W = dL_dW * 2*lambda_ * W 
+    grad_W = 1/n * np.matmul(G_batch, X_batch.T) + 2*lambda_ * W 
+    grad_b = 1/n * np.matmul(G_batch, np.ones((n,1) , dtype=np.float64)) #.reshape(n, 1))
+
+
     return grad_W, grad_b
 
+
+def compute_grads_num_slow(X, Y, W, b, lamda, h):
+	""" Converted from matlab code """
+	no 	= 	W.shape[0]
+	d 	= 	X.shape[0]
+
+	grad_W = np.zeros(W.shape , dtype=np.float64)
+	grad_b = np.zeros((no, 1) , dtype=np.float64)
+	
+	for i in range(len(b)):
+		b_try = np.array(b)
+		b_try[i] -= h
+		c1, _ = compute_cost(X, Y, W, b_try, lamda)
+
+		b_try = np.array(b)
+		b_try[i] += h
+		c2, _ = compute_cost(X, Y, W, b_try, lamda)
+
+		grad_b[i] = (c2-c1) / (2*h)
+
+	for i in range(W.shape[0]):
+		for j in range(W.shape[1]):
+			W_try = np.array(W)
+			W_try[i,j] -= h
+			c1, _ = compute_cost(X, Y, W_try, b, lamda)
+
+			W_try = np.array(W)
+			W_try[i,j] += h
+			c2, _ = compute_cost(X, Y, W_try, b, lamda)
+
+			grad_W[i,j] = (c2-c1) / (2*h)
+
+	return grad_W, grad_b
+
+
+def mini_batch_GD(train_X, train_Y, val_X, val_Y, W, b, GDparams):
+
+    lambd   = GDparams[0]
+    n_epoch = GDparams[1] 
+    n_batch = GDparams[2]
+    eta     = GDparams[3]
+
+    training_costs    = []
+    training_losses   = []
+    validation_costs  = []
+    validation_losses = []
+
+    for i in range(n_epoch):
+        for j in range(n // n_batch):
+            start = j * n_batch
+            end = (j+1) * n_batch
+            X_batch = train_X[:, start:end]
+            Y_batch = train_Y[:, start:end]
+            P = evaluate_classifier(X_batch, W, b)
+            grad_W, grad_b = compute_gradients(X_batch, Y_batch, P, W, lambd, b)
+            W -= eta * grad_W
+            b -= eta * grad_b
+
+        ## Compute loss and cost for each iteration and store in arrays
+        train_cost, train_loss = compute_cost (train_X, train_Y, W, b, lambd)
+        training_costs.append(train_cost)
+        training_losses.append(train_loss)
+
+        val_cost, val_loss = compute_cost (val_X, val_Y, W, b, lambd)
+        validation_costs.append(val_cost)
+        validation_losses.append(val_loss)
+
+
+    return W, b, training_costs, training_losses, validation_costs, validation_losses
+
+
+# Given function from canvas to display weight matrix W
+def montage(W, param_idx):
+    """ Display the image for each label in W """
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(2,5)
+    for i in range(2):
+        for j in range(5):
+            im  = W[i*5+j,:].reshape(32,32,3, order='F')
+            sim = (im-np.min(im[:]))/(np.max(im[:])-np.min(im[:]))
+            sim = sim.transpose(1,0,2)
+            ax[i][j].imshow(sim, interpolation='nearest')
+            ax[i][j].set_title("y="+str(5*i+j))
+            ax[i][j].axis('off')
+    #plt.show()
+    fig.savefig('Result_Pics/' + 'weights_params' + str(param_idx+1) + '.png', bbox_inches='tight')
+    plt.close(fig) 
+
+def plot_res(train, val, type, param_idx):
+
+    plt.plot(range(len(val)), val, label= 'Validation ' + type, color= 'Red')
+    plt.plot(range(len(train)), train, label= 'Training ' + type, color= 'Green')
+
+    plt.xlabel("Epochs")
+    plt.ylabel(type)
+
+    plt.legend()
+    #plt.show()
+    plt.savefig('Result_Pics/' + type + '_for_' + str(param_idx+1) + '.png', bbox_inches='tight')
+    plt.close() 
+
+
+
+
 def main():
-    W, b = init_parameters()
 
     training_path    = separate_data('data_batch_1.mat', 'training_batch.mat')
     validation_path  = separate_data('data_batch_2.mat', 'validation_batch.mat')
     test_path        = separate_data('test_batch.mat', 'testing_batch.mat')
-
     training_batch   = loadmat(training_path)
     validation_batch = loadmat(validation_path)
     test_batch       = loadmat(test_path)
 
     training_batch['data'], validation_batch['data'], test_batch['data'] = pre_process(training_batch['data'], validation_batch['data'], test_batch['data'])
-    trainX = training_batch['data']
-    trainY = training_batch['onehot']
-    trainy = training_batch['labels']
+  
+    train_X = np.matrix(training_batch['data'])
+    train_Y = np.matrix(training_batch['onehot'])
 
-    temp4 = EvaluateClassifier(trainX, W, b)
-    temp5 = ComputeCost(trainX, trainY, W, b, LAMBDA)
-    temp6 = ComputeAccuracy(trainX, trainy, W, b) 
+    val_X = np.matrix(validation_batch['data'])
+    val_Y = np.matrix(validation_batch['onehot'])
 
-    #print("Accuracy = ", temp6*100," %" )
+    test_X = np.matrix(test_batch['data'])
+    test_y = np.matrix(test_batch['labels'])
+    
+    
+    #            [ lamdba, n_epoch, n_batch, eta ]
+    GDparams = [ [ 0,      40,      100,     0.1 ], [0, 40, 100, 0.001], [0.1, 40, 100, 0.001], [1, 40, 100, 0.001]  ]
 
-    P = EvaluateClassifier(trainX, W, b)
-    grad_W, grad_b = ComputeGradients(trainX, trainY, P, W, LAMBDA, b)
-    print("mine    ", "grad_W  = ", grad_W, " || ", " grad_b = ", grad_b)
+    for i in range(len(GDparams)):
+        W, b = init_parameters()
+        lambd   = GDparams[i][0]
+        n_epoch = GDparams[i][1] 
+        n_batch = GDparams[i][2]
+        eta     = GDparams[i][3]
 
-    ngrad_b, ngrad_W = funcs.ComputeGradsNum(trainX[:, 1], trainY[:, 1], W, b, LAMBDA, 1e-6)
-    print("correct ", "ngrad_W = ", ngrad_W, " || ", "ngrad_b = ", ngrad_b)
+        P = evaluate_classifier(train_X, W, b)
+        
+        grad_W, grad_b = compute_gradients(train_X[:, :n_batch], train_Y[:, :n_batch], P, W, lambd, b)
+        ngrad_W, ngrad_b = compute_grads_num_slow(train_X[:, :n_batch], train_Y[:, :n_batch], W, b, lambd, 1e-6)
 
-main()
+        # Test that numerical and analytical gradient computations are the same
+        diff_W = np.linalg.norm((grad_W) - np.matrix(ngrad_W)) / max( 1e-6, np.linalg.norm((grad_W)) + np.linalg.norm((ngrad_W)))
+        diff_b = np.linalg.norm((grad_b) - np.matrix(ngrad_b)) / max( 1e-6, np.linalg.norm((grad_b)) + np.linalg.norm((ngrad_b)))
+        print("diff_W = ", diff_W)
+        print("diff_b = ", diff_b)
+        np.testing.assert_almost_equal(np.matrix(grad_W), np.matrix(ngrad_W), decimal=8)
+        np.testing.assert_almost_equal(np.matrix(grad_b), np.matrix(ngrad_b), decimal=8)
+        
+        # perform GD on training data.
+        W, b, train_costs, train_losses, val_costs, val_losses = mini_batch_GD(train_X, train_Y, val_X, val_Y, W, b, GDparams[i])
+
+        # plot weight, loss and cost
+        montage(W, i)
+        plot_res(train_costs, val_costs, "costs", i )
+        plot_res(train_losses, val_losses, "losses", i )
+
+        # test the accuracy of model
+        acc = compute_accuracy(test_X, test_y, W, b) * 100
+        print("Accuracy of testdata = " + str(acc) + "%")
+
+    
+
+if __name__ == "__main__":
+    main()
