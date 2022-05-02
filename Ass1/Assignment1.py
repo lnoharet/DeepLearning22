@@ -19,7 +19,7 @@ np.random.seed(400)
 
 # reads in data from matlab file: fname, converts it into the wanted format and saves it to new_fname. 
 def separate_data(fname, new_fname):
-    data_batch = loadmat('Datasets/cifar-10-batches-mat/' + fname)
+    data_batch = loadmat('../Datasets/cifar-10-batches-mat/' + fname)
 
     # image pixel data (d x n). Should be double and values between 0 and 1 ??
     x = np.float64(np.matrix(data_batch['data']).transpose())
@@ -32,9 +32,9 @@ def separate_data(fname, new_fname):
         j = y[i][0] # label image i
         y_m[j,i] = 1
 
-    scipy.io.savemat('Datasets/'+new_fname, dict(data=x, onehot = y_m, labels = y))
+    scipy.io.savemat('../Datasets/'+new_fname, dict(data=x, onehot = y_m, labels = y))
 
-    return 'Datasets/'+new_fname
+    return '../Datasets/'+new_fname
 
 
 # input training data, outputs mean and std
