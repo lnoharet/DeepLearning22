@@ -321,10 +321,8 @@ class NeuralNetwork():
             s, s_mean, s_var, s_circum = scores['s'], scores['mean_s'], scores['var_s'], scores['s_circum']
 
             # Gradients of J w.r.t. bias vector b[k-1] and W[k-1]:
-
             self.net_grads['W'][-1] = 1/n_b * (G_batch @ H_batch[-1].T) + 2 * lambda_ * self.net_params['W'][-1]
             self.net_grads['b'][-1] = 1/n_b * (G_batch @ np.ones((n_b,1) , dtype=np.float64)) 
-            # TODO: FEL härnedan
             # Propagate G_batch to the previous layer
             G_batch =  self.net_params['W'][-1].T @ G_batch
             G_batch = np.multiply(G_batch, np.where(H_batch[-1] > 0, 1, 0))
@@ -338,7 +336,7 @@ class NeuralNetwork():
                 G_batch = np.multiply(G_batch, self.net_params['gammas'][l-1] @ np.ones((1,n_b), dtype=np.float64))
 
                 # Propagate G_batch through the batch normalization
-                G_batch = self.batch_norm_back_pass(G_batch, s[l-1], s_mean[l-1], s_var[l-1]) # TODO tror att det är fel här 
+                G_batch = self.batch_norm_back_pass(G_batch, s[l-1], s_mean[l-1], s_var[l-1])
 
                 # Gradients of J w.r.t. bias vector b[l-1] and W[l-1]:
                 self.net_grads['W'][l-1] = 1/n_b * (G_batch @ H_batch[l-1].T) + 2 * lambda_ * self.net_params['W'][l-1]
